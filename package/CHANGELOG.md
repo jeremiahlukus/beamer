@@ -1,3 +1,7 @@
+# 1.0.0-nullsafety.8
+
+- **Fix** Missing late initialization error for `NavigationNotifier.currentLocation` by removing this attribute completely. It's really not needed at the moment.
+
 # 1.0.0-nullsafety.7
 
 - **Fix** Unexpected null value exception; [issue 144](https://github.com/slovnicki/beamer/issues/144)
