@@ -1,3 +1,7 @@
+# 1.0.0-pre.3.0
+
+A copy of `v0.13.0`
+
 # 0.13.0
 
 - **BREAKING:** renamed `BeamerRouterDelegate` to `BeamerDelegate`
