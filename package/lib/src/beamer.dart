@@ -14,10 +14,22 @@ class Beamer extends StatefulWidget {
   Beamer({
     Key? key,
     required this.routerDelegate,
+    this.createBackButtonDispatcher = true,
+    this.backButtonDispatcher,
   }) : super(key: key);
 
   /// Responsible for beaming, updating and rebuilding the page stack.
   final BeamerDelegate routerDelegate;
+
+  /// Whether to create a [BeamerChildBackButtonDispatcher] automatically
+  /// if the [backButtonDispatcher] is not set but parent has it.
+  final bool createBackButtonDispatcher;
+
+  /// Define how Android's back button should behave.
+  ///
+  /// Use [BeamerChildBackButtonDispatcher]
+  /// instead of [BeamerBackButtonDispatcher].
+  final BackButtonDispatcher? backButtonDispatcher;
 
   /// Access Beamer's [routerDelegate].
   static BeamerDelegate of(BuildContext context, {bool root = false}) {
@@ -58,12 +70,19 @@ class BeamerState extends State<Beamer> {
 
   @override
   Widget build(BuildContext context) {
-    routerDelegate.parent ??=
-        Router.of(context).routerDelegate as BeamerDelegate;
+    final parent = Router.of(context);
+    routerDelegate.parent ??= parent.routerDelegate as BeamerDelegate;
+    final backButtonDispatcher = widget.backButtonDispatcher ??
+        ((parent.backButtonDispatcher is BeamerBackButtonDispatcher &&
+                widget.createBackButtonDispatcher)
+            ? BeamerChildBackButtonDispatcher(
+                parent: parent.backButtonDispatcher!,
+                delegate: routerDelegate,
+              )
+            : null);
     return Router(
-      routerDelegate: widget.routerDelegate,
-      backButtonDispatcher:
-          BeamerBackButtonDispatcher(delegate: widget.routerDelegate),
+      routerDelegate: routerDelegate,
+      backButtonDispatcher: backButtonDispatcher?..takePriority(),
     );
   }
 }
@@ -93,7 +112,7 @@ extension BeamerExtensions on BuildContext {
   /// {@macro beamToNamed}
   void beamToNamed(
     String uri, {
-    Map<String, dynamic> data = const <String, dynamic>{},
+    Map<String, dynamic>? data,
     String? popToNamed,
     TransitionDelegate? transitionDelegate,
     bool beamBackOnPop = false,
@@ -116,7 +135,7 @@ extension BeamerExtensions on BuildContext {
   /// {@macro popToNamed}
   void popToNamed(
     String uri, {
-    Map<String, dynamic> data = const <String, dynamic>{},
+    Map<String, dynamic>? data,
     String? popToNamed,
     bool beamBackOnPop = false,
     bool popBeamLocationOnPop = false,
@@ -135,7 +154,8 @@ extension BeamerExtensions on BuildContext {
   }
 
   /// {@macro beamBack}
-  void beamBack() => Beamer.of(this).beamBack();
+  void beamBack({Map<String, dynamic>? data}) =>
+      Beamer.of(this).beamBack(data: data);
 
   /// {@macro popBeamLocation}
   void popBeamLocation() => Beamer.of(this).popBeamLocation();
@@ -146,8 +166,15 @@ extension BeamerExtensions on BuildContext {
   /// {@macro currentPages}
   List<BeamPage> get currentBeamPages => Beamer.of(this).currentPages;
 
+  /// {@macro beamStateHistory}
+  List<BeamState> get beamStateHistory => Beamer.of(this).beamStateHistory;
+
   /// {@macro canBeamBack}
   bool get canBeamBack => Beamer.of(this).canBeamBack;
+
+  /// {@macro beamLocationHistory}
+  List<BeamLocation> get beamLocationHistory =>
+      Beamer.of(this).beamLocationHistory;
 
   /// {@macro canPopBeamLocation}
   bool get canPopBeamLocation => Beamer.of(this).canPopBeamLocation;

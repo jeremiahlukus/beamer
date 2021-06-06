@@ -21,12 +21,14 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     this.removeDuplicateHistory = true,
     this.notFoundPage,
     this.notFoundRedirect,
+    this.notFoundRedirectNamed,
     this.guards = const <BeamGuard>[],
     this.navigatorObservers = const <NavigatorObserver>[],
     this.transitionDelegate = const DefaultTransitionDelegate(),
     this.beamBackTransitionDelegate = const ReverseTransitionDelegate(),
     this.onPopPage,
     this.setBrowserTabTitle = true,
+    this.updateFromParent = true,
   }) {
     notFoundPage ??= BeamPage(
       title: 'Not found',
@@ -63,6 +65,9 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   set parent(BeamerDelegate? parent) {
     _parent = parent!;
     _initializeFromParent();
+    if (updateFromParent) {
+      _parent!.addListener(_updateFromParent);
+    }
   }
 
   /// The top-most [BeamerDelegate], a parent of all.
@@ -151,6 +156,9 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   /// [BeamLocation] to redirect to when no [BeamLocation] supports the incoming URI.
   final BeamLocation? notFoundRedirect;
 
+  /// URI string to redirect to when no [BeamLocation] supports the incoming URI.
+  final String? notFoundRedirectNamed;
+
   /// Guards that will be executing [check] on [currentBeamLocation] candidate.
   ///
   /// Checks will be executed in order; chain of responsibility pattern.
@@ -189,26 +197,31 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   /// be used to set and update the browser tab title.
   final bool setBrowserTabTitle;
 
+  /// Whether to call [update] when parent notifies listeners.
+  ///
+  /// This means that navigation can be done either on parent or on this
+  final bool updateFromParent;
+
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
-  final List<BeamState> _beamStateHistory = [];
-
+  /// {@template beamStateHistory}
   /// The history of beaming states.
   ///
   /// [BeamState] is inserted on every beaming event, if it differs from last.
   ///
   /// See [_pushHistory].
-  List<BeamState> get beamStateHistory => _beamStateHistory;
+  /// {@endtemplate}
+  final List<BeamState> beamStateHistory = [];
 
-  final List<BeamLocation> _beamLocationHistory = [];
-
+  /// {@template beamLocationHistory}
   /// The history of [BeamLocation]s.
   ///
   /// [BeamLocation] is inserted differently depending on configuration of
   /// [preferUpdate], [replaceCurrent], [removeDuplicateHistory].
   ///
   /// See [_pushHistory].
-  List<BeamLocation> get beamLocationHistory => _beamLocationHistory;
+  /// {@endtemplate}
+  final List<BeamLocation> beamLocationHistory = [];
 
   late BeamLocation _currentBeamLocation;
 
@@ -252,13 +265,19 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   T Function(BeamState state)? createState;
 
   /// If `false`, does not report the route until next [update].
-  bool _active = true;
-
-  /// When not active, does not report the route.
   ///
   /// Useful when having sibling beamers that are both build at the same time.
   /// Becomes active on next [update].
-  void active([bool? value]) => _active = value ?? true;
+  bool active = true;
+
+  /// The [Navigator] that belongs to this [BeamerDelegate].
+  ///
+  /// Useful for popping dialogs without accessing [BuildContext]:
+  ///
+  /// ```dart
+  /// beamerDelegate.navigator.pop();
+  /// ```
+  NavigatorState get navigator => _navigatorKey.currentState!;
 
   /// Main method to update the [state] of this; `Beamer.of(context)`,
   ///
@@ -303,8 +322,9 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     bool replaceCurrent = false,
     bool buildBeamLocation = true,
     bool rebuild = true,
+    bool updateParent = true,
   }) {
-    _active = true;
+    active = true;
     _popState = popState ?? _popState;
     _currentTransitionDelegate = transitionDelegate ?? this.transitionDelegate;
     _beamBackOnPop = beamBackOnPop;
@@ -320,7 +340,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
       listener?.call(this.state, _currentBeamLocation);
     }
 
-    if (state != _parent?.state) {
+    if (state != _parent?.state && updateParent) {
       _parent?.update(
         state: this.state.copyWith(),
         rebuild: false,
@@ -389,7 +409,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   /// {@endtemplate}
   void beamToNamed(
     String uri, {
-    Map<String, dynamic> data = const <String, dynamic>{},
+    Map<String, dynamic>? data,
     String? popToNamed,
     TransitionDelegate? transitionDelegate,
     bool beamBackOnPop = false,
@@ -397,10 +417,12 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     bool stacked = true,
     bool replaceCurrent = false,
   }) {
+    final beamData = data ?? _currentBeamLocation.state.data;
     update(
-      state: createState!(BeamState.fromUri(Uri.parse(uri), data: data)),
+      state: createState!(BeamState.fromUri(Uri.parse(uri), data: beamData)),
       popState: popToNamed != null
-          ? createState!(BeamState.fromUri(Uri.parse(popToNamed), data: data))
+          ? createState!(
+              BeamState.fromUri(Uri.parse(popToNamed), data: beamData))
           : null,
       transitionDelegate: transitionDelegate,
       beamBackOnPop: beamBackOnPop,
@@ -417,7 +439,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   /// {@endtemplate}
   void popToNamed(
     String uri, {
-    Map<String, dynamic> data = const <String, dynamic>{},
+    Map<String, dynamic>? data,
     String? popToNamed,
     bool beamBackOnPop = false,
     bool popBeamLocationOnPop = false,
@@ -440,7 +462,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   /// Whether it is possible to [beamBack],
   /// i.e. there is more than 1 state in [beamStateHistory].
   /// {@endtemplate}
-  bool get canBeamBack => _beamStateHistory.length > 1;
+  bool get canBeamBack => beamStateHistory.length > 1;
 
   /// {@template beamBack}
   /// Beams to previous state in [beamStateHistory].
@@ -450,14 +472,16 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
   ///
   /// Returns the success, whether the [state] updated.
   /// {@endtemplate}
-  bool beamBack() {
+  bool beamBack({Map<String, dynamic>? data}) {
     if (!canBeamBack) {
       return false;
     }
-    _beamStateHistory.removeLast();
-    final state = _beamStateHistory.removeLast();
+    beamStateHistory.removeLast();
+    _parent?.beamStateHistory.removeLast();
+    final state = beamStateHistory.removeLast();
+    _parent?.beamStateHistory.removeLast();
     update(
-      state: createState!(state),
+      state: createState!(state.copyWith(data: data)),
       transitionDelegate: beamBackTransitionDelegate,
     );
     return true;
@@ -465,13 +489,13 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
 
   /// Remove everything except last from [beamStateHistory].
   void clearBeamStateHistory() =>
-      _beamStateHistory.removeRange(0, _beamStateHistory.length - 1);
+      beamStateHistory.removeRange(0, beamStateHistory.length - 1);
 
   /// {@template canPopBeamLocation}
   /// Whether it is possible to [popBeamLocation],
   /// i.e. there is more than 1 location in [beamLocationHistory].
   /// {@endtemplate}
-  bool get canPopBeamLocation => _beamLocationHistory.length > 1;
+  bool get canPopBeamLocation => beamLocationHistory.length > 1;
 
   /// {@template popBeamLocation}
   /// Beams to previous location in [beamLocationHistory]
@@ -486,9 +510,9 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
       return false;
     }
     _currentBeamLocation.removeListener(_updateFromLocation);
-    _beamLocationHistory.removeLast();
-    _currentBeamLocation = _beamLocationHistory.last;
-    _beamStateHistory.add(_currentBeamLocation.state.copyWith());
+    beamLocationHistory.removeLast();
+    _currentBeamLocation = beamLocationHistory.last;
+    beamStateHistory.add(_currentBeamLocation.state.copyWith());
     _currentBeamLocation.addListener(_updateFromLocation);
     update(
       transitionDelegate: beamBackTransitionDelegate,
@@ -498,7 +522,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
 
   /// Remove everything except last from [beamLocationHistory].
   void clearBeamLocationHistory() =>
-      _beamLocationHistory.removeRange(0, _beamLocationHistory.length - 1);
+      beamLocationHistory.removeRange(0, beamLocationHistory.length - 1);
 
   @override
   BeamState? get currentConfiguration =>
@@ -513,9 +537,22 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     if (guard != null) {
       _applyGuard(guard, context);
     }
-    if ((_currentBeamLocation is NotFound) && notFoundRedirect != null) {
-      _currentBeamLocation.removeListener(_updateFromLocation);
-      _pushHistory(notFoundRedirect!);
+    if (_currentBeamLocation is NotFound) {
+      if (notFoundRedirect == null && notFoundRedirectNamed == null) {
+        // do nothing, pass on NotFound
+      } else {
+        var redirectBeamLocation;
+        if (notFoundRedirect != null) {
+          redirectBeamLocation = notFoundRedirect!;
+        } else if (notFoundRedirectNamed != null) {
+          redirectBeamLocation = locationBuilder(
+            BeamState.fromUri(Uri.parse(notFoundRedirectNamed!)),
+          );
+        }
+        _currentBeamLocation.removeListener(_updateFromLocation);
+        _pushHistory(redirectBeamLocation);
+        _updateFromLocation(rebuild: false);
+      }
     }
 
     final navigator = Builder(
@@ -533,7 +570,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
                       .last
                 ];
         }
-        if (_active && kIsWeb && setBrowserTabTitle) {
+        if (active && kIsWeb && setBrowserTabTitle) {
           SystemChrome.setApplicationSwitcherDescription(
               ApplicationSwitcherDescription(
             label: _currentPages.last.title ??
@@ -552,36 +589,38 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
                   : _currentPages + [guard.showPage!]
               : _currentPages,
           onPopPage: (route, result) {
+            if (route.willHandlePopInternally) {
+              if (!route.didPop(result)) {
+                return false;
+              }
+            }
+
             if (_popState != null) {
               update(
                 state: _popState,
                 transitionDelegate: beamBackTransitionDelegate,
                 replaceCurrent: true,
               );
-              return route.didPop(result);
             } else if (_popBeamLocationOnPop) {
               final didPopBeamLocation = popBeamLocation();
               if (!didPopBeamLocation) {
                 return false;
               }
-              return route.didPop(result);
             } else if (_beamBackOnPop) {
-              beamBack();
               final didBeamBack = beamBack();
               if (!didBeamBack) {
                 return false;
               }
-              return route.didPop(result);
-            }
-
-            final lastPage = _currentPages.last;
-            if (lastPage is BeamPage) {
-              if (lastPage.popToNamed != null) {
-                popToNamed(lastPage.popToNamed!);
-              } else {
-                final shouldPop = lastPage.onPopPage(context, this, lastPage);
-                if (!shouldPop) {
-                  return false;
+            } else {
+              final lastPage = _currentPages.last;
+              if (lastPage is BeamPage) {
+                if (lastPage.popToNamed != null) {
+                  popToNamed(lastPage.popToNamed!);
+                } else {
+                  final shouldPop = lastPage.onPopPage(context, this, lastPage);
+                  if (!shouldPop) {
+                    return false;
+                  }
                 }
               }
             }
@@ -631,13 +670,7 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     BuildContext context,
     BeamLocation location,
   ) {
-    for (var guard in guards) {
-      if (guard.shouldGuard(location) && !guard.check(context, location)) {
-        guard.onCheckFailed?.call(context, location);
-        return guard;
-      }
-    }
-    for (var guard in location.guards) {
+    for (var guard in guards + location.guards) {
       if (guard.shouldGuard(location) && !guard.check(context, location)) {
         guard.onCheckFailed?.call(context, location);
         return guard;
@@ -654,8 +687,8 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     var redirectLocation;
 
     if (guard.beamTo == null && guard.beamToNamed == null) {
-      _beamStateHistory.removeLast();
-      state = createState!(_beamStateHistory.last);
+      beamStateHistory.removeLast();
+      state = createState!(beamStateHistory.last);
       redirectLocation = locationBuilder(_state);
     } else if (guard.beamTo != null) {
       redirectLocation = guard.beamTo!(context);
@@ -670,34 +703,37 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     }
 
     _currentBeamLocation.removeListener(_updateFromLocation);
-    if (guard.replaceCurrentStack && _beamLocationHistory.isNotEmpty) {
-      _beamStateHistory.removeLast();
-      _beamLocationHistory.removeLast();
+    if (guard.replaceCurrentStack && beamLocationHistory.isNotEmpty) {
+      beamStateHistory.removeLast();
+      beamLocationHistory.removeLast();
     }
     _pushHistory(redirectLocation);
-    updateRouteInformation(_currentBeamLocation.state);
+    _updateFromLocation(rebuild: false);
+    if (_parent == null) {
+      updateRouteInformation(_currentBeamLocation.state);
+    }
   }
 
   void _pushHistory(BeamLocation location, {bool replaceCurrent = false}) {
-    if (_beamStateHistory.isEmpty ||
-        _beamStateHistory.last.uri != location.state.uri) {
-      _beamStateHistory.add(location.state.copyWith());
+    if (beamStateHistory.isEmpty ||
+        beamStateHistory.last.uri != location.state.uri) {
+      beamStateHistory.add(location.state.copyWith());
     }
 
     _currentBeamLocation.removeListener(_updateFromLocation);
     if ((preferUpdate &&
                 location.runtimeType == _currentBeamLocation.runtimeType ||
             replaceCurrent) &&
-        _beamLocationHistory.isNotEmpty) {
-      _beamLocationHistory.removeLast();
+        beamLocationHistory.isNotEmpty) {
+      beamLocationHistory.removeLast();
     }
     if (removeDuplicateHistory) {
-      _beamLocationHistory
+      beamLocationHistory
           .removeWhere((l) => l.runtimeType == location.runtimeType);
     }
 
-    _beamLocationHistory.add(location);
-    _currentBeamLocation = _beamLocationHistory.last;
+    beamLocationHistory.add(location);
+    _currentBeamLocation = beamLocationHistory.last;
     _currentBeamLocation.addListener(_updateFromLocation);
   }
 
@@ -711,15 +747,25 @@ class BeamerDelegate<T extends BeamState> extends RouterDelegate<BeamState>
     _pushHistory(location);
   }
 
-  void _updateFromLocation() {
+  void _updateFromParent({bool rebuild = true}) {
+    update(
+      state: createState!(_parent!.state),
+      rebuild: rebuild,
+      updateParent: false,
+    );
+  }
+
+  void _updateFromLocation({bool rebuild = true}) {
     update(
       state: createState!(_currentBeamLocation.state),
       buildBeamLocation: false,
+      rebuild: rebuild,
     );
   }
 
   @override
   void dispose() {
+    _parent?.removeListener(_updateFromParent);
     _currentBeamLocation.removeListener(_updateFromLocation);
     super.dispose();
   }

@@ -92,8 +92,8 @@ void main() {
       final delegate = BeamerDelegate(
         locationBuilder: SimpleLocationBuilder(
           routes: {
-            '/': (context) => Container(),
-            '/:id': (context) => Container(),
+            '/': (context, state) => Container(),
+            '/:id': (context, state) => Container(),
           },
         ),
       );
@@ -107,7 +107,7 @@ void main() {
       await tester.pump();
       expect(delegate.currentBeamLocation.state.pathParameters['id'], 'my-id');
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentBeamLocation.state.pathParameters, {});
     });
@@ -130,7 +130,7 @@ void main() {
       expect(delegate.currentPages.length, 2);
       expect(delegate.currentPages.last.key, ValueKey('books'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
       expect(delegate.currentPages.last.key, ValueKey('books'));
@@ -148,7 +148,7 @@ void main() {
       expect(delegate.currentPages.length, 3);
       expect(delegate.currentPages.last.key, ValueKey('book-1'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 1);
       expect(delegate.currentPages.last.key, ValueKey('home'));
@@ -167,7 +167,7 @@ void main() {
       expect(delegate.currentPages.length, 4);
       expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
       expect(delegate.currentPages.last.key, ValueKey('books'));
@@ -185,7 +185,7 @@ void main() {
       expect(delegate.currentPages.length, 5);
       expect(delegate.currentPages.last.key, ValueKey('book-1-buy'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 4);
       expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
@@ -203,7 +203,7 @@ void main() {
       expect(delegate.currentPages.length, 4);
       expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
       expect(delegate.currentPages.last.key, ValueKey('books'));
@@ -213,7 +213,7 @@ void main() {
       expect(delegate.currentPages.length, 4);
       expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
       expect(delegate.currentPages.last.key, ValueKey('books'));
@@ -245,7 +245,7 @@ void main() {
       );
       expect(delegate.currentBeamLocation.state.queryParameters, equals({}));
 
-      delegate.navigatorKey.currentState!.pop();
+      delegate.navigator.pop();
       await tester.pump();
       expect(
         delegate.currentBeamLocation.state.uri.path,
@@ -256,43 +256,86 @@ void main() {
         equals({'x': 'y'}),
       );
     });
+
+    testWidgets('popBeamLocationOnPop does nothing in single location case',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routeInformationParser: BeamerParser(),
+          routerDelegate: delegate,
+        ),
+      );
+      delegate.beamToNamed('/books/1', popBeamLocationOnPop: true);
+      await tester.pump();
+      expect(delegate.currentPages.length, 3);
+      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+
+      delegate.navigator.pop();
+      await tester.pump();
+      expect(delegate.currentPages.length, 3);
+      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+    });
+
+    testWidgets('beamBackOnPop works', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routeInformationParser: BeamerParser(),
+          routerDelegate: delegate,
+        ),
+      );
+      delegate.beamToNamed('/books/1');
+      await tester.pump();
+      expect(delegate.currentPages.length, 3);
+      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+
+      delegate.beamToNamed('/books/2', beamBackOnPop: true);
+      await tester.pump();
+      expect(delegate.currentPages.length, 3);
+      expect(delegate.currentPages.last.key, ValueKey('book-2'));
+
+      delegate.navigator.pop();
+      await tester.pump();
+      expect(delegate.currentPages.length, 3);
+      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+      expect(delegate.state.uri.path, '/books/1');
+    });
   });
 
   group('Transitions', () {
     final delegate = BeamerDelegate(
       locationBuilder: SimpleLocationBuilder(
         routes: {
-          '/': (context) => BeamPage(
+          '/': (context, state) => BeamPage(
                 key: ValueKey('/'),
                 type: BeamPageType.material,
                 child: Scaffold(body: Container(child: Text('0'))),
               ),
-          '/1': (context) => BeamPage(
+          '/1': (context, state) => BeamPage(
                 key: ValueKey('/1'),
                 type: BeamPageType.cupertino,
                 child: Scaffold(body: Container(child: Text('1'))),
               ),
-          '/1/2': (context) => BeamPage(
+          '/1/2': (context, state) => BeamPage(
                 key: ValueKey('/1/2'),
                 type: BeamPageType.fadeTransition,
                 child: Scaffold(body: Container(child: Text('2'))),
               ),
-          '/1/2/3': (context) => BeamPage(
+          '/1/2/3': (context, state) => BeamPage(
                 key: ValueKey('/1/2/3'),
                 type: BeamPageType.slideTransition,
                 child: Scaffold(body: Container(child: Text('3'))),
               ),
-          '/1/2/3/4': (context) => BeamPage(
+          '/1/2/3/4': (context, state) => BeamPage(
                 key: ValueKey('/1/2/3/4'),
                 type: BeamPageType.scaleTransition,
                 child: Scaffold(body: Container(child: Text('4'))),
               ),
-          '/1/2/3/4/5': (context) => BeamPage(
+          '/1/2/3/4/5': (context, state) => BeamPage(
                 key: ValueKey('/1/2/3/4/5'),
                 type: BeamPageType.noTransition,
                 child: Scaffold(body: Container(child: Text('5'))),
               ),
-          '/1/2/3/4/5/6': (context) => BeamPage(
+          '/1/2/3/4/5/6': (context, state) => BeamPage(
                 key: ValueKey('/1/2/3/4/5/6'),
                 pageRouteBuilder: (settings, child) => PageRouteBuilder(
                   settings: settings,

@@ -2,7 +2,7 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 
 class Location1 extends BeamLocation {
-  Location1(BeamState state) : super(state);
+  Location1([BeamState? state]) : super(state);
 
   @override
   List<BeamPage> buildPages(BuildContext context, BeamState state) => [
@@ -124,6 +124,36 @@ class NoStateLocation extends BeamLocation {
   List<BeamPage> buildPages(BuildContext context, BeamState state) => [
         BeamPage(
           key: ValueKey('page'),
+          child: Container(),
+        )
+      ];
+}
+
+class RegExpLocation extends BeamLocation {
+  RegExpLocation([BeamState? state]) : super(state);
+
+  @override
+  List get pathBlueprints => [RegExp('/reg')];
+
+  @override
+  List<BeamPage> buildPages(BuildContext context, BeamState state) => [
+        BeamPage(
+          key: ValueKey('reg'),
+          child: Container(),
+        )
+      ];
+}
+
+class AsteriskLocation extends BeamLocation {
+  AsteriskLocation([BeamState? state]) : super(state);
+
+  @override
+  List get pathBlueprints => ['/anything/*'];
+
+  @override
+  List<BeamPage> buildPages(BuildContext context, BeamState state) => [
+        BeamPage(
+          key: ValueKey('anything'),
           child: Container(),
         )
       ];

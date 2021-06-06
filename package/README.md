@@ -46,7 +46,7 @@ Handle your application routing, synchronize it with browser URL and more. Beame
   - [With a Map of Routes](#with-a-map-of-routes)
   - [Nested Navigation](#nested-navigation)
   - [General Notes](#general-notes)
-  - [Web Tips](#web-tips)
+  - [Tips and Common Issues](#tips-and-common-issues)
 - [Examples](#examples)
   - [Location Builders](#location-builders)
   - [Advanced Books](#advanced-books)
@@ -59,6 +59,7 @@ Handle your application routing, synchronize it with browser URL and more. Beame
   - [Nested Navigation](#nested-navigation-1)
   - [Integration with Navigation UI Packages](#integration-with-navigation-ui-packages)
 - [Migrating](#migrating)
+  - [From 0.13 to 0.14](#from-013-to-014)
   - [From 0.12 to 0.13](#from-012-to-013)
   - [From 0.11 to 0.12](#from-011-to-012)
   - [From 0.10 to 0.11](#from-010-to-011)
@@ -74,30 +75,35 @@ The simplest setup is achieved by using the `SimpleLocationBuilder` which yields
 
 ```dart
 class MyApp extends StatelessWidget {
+  final routerDelegate = BeamerDelegate(
+    locationBuilder: SimpleLocationBuilder(
+      routes: {
+        // Return either Widgets or BeamPages if more customization is needed
+        '/': (context) => HomeScreen(),
+        '/books': (context) => BooksScreen(),
+        '/books/:bookId': (context) {
+          // Extract the current BeamState which holds route information
+          final beamState = context.currentBeamLocation.state;
+          // Take the parameter of interest
+          final bookId = beamState.pathParameters['bookId']!;
+          // Return a Widget or wrap it in a BeamPage for more flexibility
+          return BeamPage(
+            key: ValueKey('book-$bookId'),
+            title: 'A Book #$bookId',
+            popToNamed: '/',
+            type: BeamPageType.scaleTransition,
+            child: BookDetailsScreen(bookId),
+          );
+        }
+      },
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       routeInformationParser: BeamerParser(),
-      routerDelegate: BeamerDelegate(
-        locationBuilder: SimpleLocationBuilder(
-          routes: {
-            '/': (context) => HomeScreen(),
-            '/books': (context) => BooksScreen(),
-            '/books/:bookId': (context) {
-              final beamState = context.currentBeamLocation.state;
-              final bookId = beamState.pathParameters['bookId']!;
-              // Widgets and BeamPages can be mixed!
-              return BeamPage(
-                key: ValueKey('book-$bookId'),
-                title: 'A Book #$bookId',
-                popToNamed: '/',
-                type: BeamPageType.scaleTransition,
-                child: BookDetailsScreen(bookId),
-              );
-            }
-          },
-        ),
-      ),
+      routerDelegate: routerDelegate,
     );
   }
 }
@@ -418,10 +424,11 @@ class MyApp extends StatelessWidget {
 
 **NOTE** that "Navigator 1.0" can be used alongside Beamer. You can easily `push` or `pop` pages with `Navigator.of(context)`, but those will not be contributing to the URI. This is often needed when some info/helper page needs to be shown that doesn't influence the browser's URL. And of course, when using Beamer on mobile, this is a non-issue as there is no URL.
 
-## Web Tips
+## Tips and Common Issues
 
 - removing the `#` from URL can be done by calling `Beamer.setPathUrlStrategy()` before `runApp()`.
 - `BeamPage.title` is used for setting the browser tab title by default and can be opt-out by setting `BeamerDelegate.setBrowserTabTitle` to `false`.
+- [Losing state on hot reload](https://github.com/slovnicki/beamer/issues/193)
 
 # Examples
 
@@ -487,9 +494,9 @@ You can define global guards (for example, authentication guard) or location gua
 ```dart
 BeamerDelegate(
   guards: [
-    // Redirect to /login if the user is not authenticated:
+    // Guard /books and /books/* by beaming to /login if the user is unauthenticated:
     BeamGuard(
-      pathBlueprints: ['/books*'],
+      pathBlueprints: ['/books', '/books/*'],
       check: (context, location) => context.isAuthenticated,
       beamToNamed: '/login',
     ),
@@ -506,8 +513,8 @@ BeamerDelegate(
 List<BeamGuard> get guards => [
   // Show forbiddenPage if the user tries to enter books/2:
   BeamGuard(
-    pathBlueprints: ['/books/*'],
-    check: (context, location) => location.pathParameters['bookId'] != '2',
+    pathBlueprints: ['/books/2'],
+    check: (context, location) => false,
     showPage: forbiddenPage,
   ),
 ];
@@ -536,10 +543,12 @@ The code for the bottom navigation example app with multiple beamers is availabl
 
 ## Nested Navigation
 
+**NOTE:** In all nested `Beamer`s, full paths must be specified when defining `BeamLocation`s and beaming. (support for relative paths is in progress)
+
 The code for the nested navigation example app is available [here](https://github.com/slovnicki/beamer/tree/master/examples/nested_navigation)
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/slovnicki/beamer/master/examples/nested_navigation/example-nested-navigation.gif" alt="example-nested-navigation" width="520">
+<img src="https://raw.githubusercontent.com/slovnicki/beamer/master/examples/nested_navigation/example-nested-navigation.gif" alt="example-nested-navigation">
 
 ## Integration with Navigation UI Packages
 
@@ -549,6 +558,30 @@ The code for the nested navigation example app is available [here](https://githu
 <img src="https://raw.githubusercontent.com/slovnicki/beamer/master/examples/animated_rail/example-animated-rail.gif" alt="example-animated-rail" width="240">
 
 # Migrating
+
+## From 0.13 to 0.14
+
+Instead of
+```dart
+locationBuilder: SimpleLocationBuilder(
+  routes: {
+    '/': (context) => MyWidget(),
+    '/another': (context) {
+      final state = context.currentBeamLocation.state;
+      return AnotherThatNeedsState(state);
+    }
+  }
+)
+``` 
+now we have
+```dart
+locationBuilder: SimpleLocationBuilder(
+  routes: {
+    '/': (context, state) => MyWidget(),
+    '/another': (context, state) => AnotherThatNeedsState(state)
+  }
+)
+```
 
 ## From 0.12 to 0.13
 

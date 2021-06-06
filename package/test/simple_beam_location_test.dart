@@ -7,12 +7,28 @@ void main() {
   final delegate = BeamerDelegate(
     locationBuilder: SimpleLocationBuilder(
       routes: {
-        '/': (context) => Container(),
-        '/test': (context) => Container(),
+        '/': (context, state) => Container(),
+        RegExp('/test'): (context, state) => Container(),
+        RegExp('/path-param/(?<test>[a-z]+)'): (context, state) => Text(
+              state.pathParameters['test'] ?? 'failure',
+            ),
       },
     ),
   );
   delegate.setNewRoutePath(BeamState.fromUri(Uri.parse('/')));
+
+  group('General', () {
+    testWidgets('/ can be at the end of URI and will be ignored when matching',
+        (tester) async {
+      await tester.pumpWidget(MaterialApp.router(
+        routeInformationParser: BeamerParser(),
+        routerDelegate: delegate,
+      ));
+      delegate.beamToNamed('/test/');
+      await tester.pump();
+      expect(delegate.currentPages.length, 2);
+    });
+  });
 
   group('Keys', () {
     testWidgets('each BeamPage has a differenet ValueKey', (tester) async {
@@ -23,7 +39,7 @@ void main() {
       delegate.beamToNamed('/test');
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      final keysSet = <String>{};
+      final keysSet = <dynamic>{};
       for (var page in delegate.currentPages) {
         keysSet.add((page.key as ValueKey).value);
       }
@@ -55,7 +71,7 @@ void main() {
       delegate.beamToNamed('/unknown');
       expect(delegate.currentBeamLocation, isA<NotFound>());
 
-      delegate.beamToNamed('/test/unknown');
+      delegate.beamToNamed('/Test/unknown');
       expect(delegate.currentBeamLocation, isA<NotFound>());
     });
 
@@ -64,6 +80,7 @@ void main() {
         routeInformationParser: BeamerParser(),
         routerDelegate: delegate,
       ));
+      delegate.beamToNamed('/not-found');
       expect(find.text('Not found'), findsOneWidget);
     });
 
@@ -71,8 +88,8 @@ void main() {
       final delegate = BeamerDelegate(
         locationBuilder: SimpleLocationBuilder(
           routes: {
-            '/': (context) => Container(),
-            '/test/*': (context) => Container(),
+            '/': (context, state) => Container(),
+            '/test/*': (context, state) => Container(),
           },
         ),
       );
@@ -85,7 +102,7 @@ void main() {
       final delegate1 = BeamerDelegate(
         locationBuilder: SimpleLocationBuilder(
           routes: {
-            '/*': (context) => Container(),
+            '/*': (context, state) => Container(),
           },
         ),
       );
@@ -95,7 +112,7 @@ void main() {
       final delegate2 = BeamerDelegate(
         locationBuilder: SimpleLocationBuilder(
           routes: {
-            '*': (context) => Container(),
+            '*': (context, state) => Container(),
           },
         ),
       );
@@ -107,12 +124,20 @@ void main() {
       final delegate1 = BeamerDelegate(
         locationBuilder: SimpleLocationBuilder(
           routes: {
-            '/test/:testId': (context) => Container(),
+            '/test/:testId': (context, state) => Container(),
           },
         ),
       );
       delegate1.setNewRoutePath(BeamState.fromUri(Uri.parse('/test/1')));
       expect(delegate1.currentBeamLocation, isA<SimpleBeamLocation>());
+    });
+  });
+
+  group('RegExp', () {
+    test('can utilize path parameters', () {
+      delegate.beamToNamed('/path-param/success');
+      expect(
+          delegate.currentBeamLocation.state.pathParameters, contains('test'));
     });
   });
 }
