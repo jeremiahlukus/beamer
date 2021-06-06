@@ -1,3 +1,29 @@
+# 1.0.0-pre.4.0
+
+- **BREAKING:** `routes` in `SimpleLocationBuilder` now also bring the `state`
+- **Add:** `navigator` getter to `BeamerDelegate`
+- **Add:** `beamStateHistory` and `BeamLocationHistory` to `context` extension methods
+- **Add:** updating nested `Beamer`s on parent navigation
+- **Add:** `onBack` to `BeamerbackButtonDispatcher`
+- **Add:** Support for `RegExp` in `pathBlueprints`
+- **Add:** [authentication_riverpod](https://github.com/slovnicki/beamer/tree/master/examples/authentication_riverpod) example
+- **Add:** "Tips and Common Issues" to README
+- Make `beamStateHistory` and `beamLocationHistory` public
+- **Add:** `BeamerDelegate.notFoundRedirectNamed`
+- **Add:** `data` parameter to `beamBack`
+- **Add:** public static `BeamPage.defaultOnPopPage`
+- **Change:** `BeamPage.pageRouteBuilder` return type to be a superclass
+- **Fix:** `BeamGuard` behavior on query parameters in path
+- **Fix:** Keeping `data` as long as possible when beaming
+- **Fix:** Drawer pop
+- **Fix:** `beamBackOnPop:true` while beaming
+- **Fix:** top-level guard updating URL
+- **Fix:** correctly updating delegate after applying guards
+- Improved Android back button behavior
+- Improved bottom navigation examples
+- Improved guards example
+- Improved README Quick Start
+
 # 1.0.0-pre.3.0
 
 A copy of `v0.13.0`
