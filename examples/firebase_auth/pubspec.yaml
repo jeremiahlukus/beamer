@@ -1,5 +1,5 @@
-name: example
-description: An example app to showcase the Beamer package.
+name: firebase_auth_example
+description: An example app to showcase the usage of Firebase authentication with Beamer.
 
 publish_to: "none"
 
@@ -12,12 +12,13 @@ dependencies:
   flutter:
     sdk: flutter
   beamer:
-    path: ../
+    path: ../../package
+  firebase_core: ^1.3.0
+  firebase_auth: ^2.0.0
 
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
-  flutter_lints: ^1.0.4
   flutter_test:
     sdk: flutter
 

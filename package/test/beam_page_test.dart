@@ -2,8 +2,8 @@ import 'package:beamer/beamer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class TestLocation extends BeamLocation {
-  TestLocation([BeamState? state]) : super(state);
+class TestLocation extends BeamLocation<BeamState> {
+  TestLocation([RouteInformation? routeInformation]) : super(routeInformation);
 
   @override
   List<String> get pathBlueprints => ['/books/:bookId/details/buy'];
@@ -11,12 +11,12 @@ class TestLocation extends BeamLocation {
   @override
   List<BeamPage> buildPages(BuildContext context, BeamState state) => [
         BeamPage(
-          key: ValueKey('home'),
+          key: const ValueKey('home'),
           child: Container(),
         ),
         if (state.pathBlueprintSegments.contains('books'))
           BeamPage(
-            key: ValueKey('books'),
+            key: const ValueKey('books'),
             onPopPage: (context, delegate, page) {
               return false;
             },
@@ -33,7 +33,7 @@ class TestLocation extends BeamLocation {
             key: ValueKey('book-${state.pathParameters['bookId']}-details'),
             onPopPage: (context, delegate, page) {
               delegate.currentBeamLocation.update(
-                (state) => state.copyWith(
+                (state) => (state as BeamState).copyWith(
                   pathBlueprintSegments: ['books'],
                   pathParameters: {},
                 ),
@@ -105,11 +105,15 @@ void main() {
       );
       delegate.beamToNamed('/my-id');
       await tester.pump();
-      expect(delegate.currentBeamLocation.state.pathParameters['id'], 'my-id');
+      expect(
+          (delegate.currentBeamLocation.state as BeamState)
+              .pathParameters['id'],
+          'my-id');
 
       delegate.navigator.pop();
       await tester.pump();
-      expect(delegate.currentBeamLocation.state.pathParameters, {});
+      expect(
+          (delegate.currentBeamLocation.state as BeamState).pathParameters, {});
     });
 
     final delegate = BeamerDelegate(
@@ -128,12 +132,12 @@ void main() {
       delegate.beamToNamed('/books');
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      expect(delegate.currentPages.last.key, ValueKey('books'));
+      expect(delegate.currentPages.last.key, const ValueKey('books'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      expect(delegate.currentPages.last.key, ValueKey('books'));
+      expect(delegate.currentPages.last.key, const ValueKey('books'));
     });
 
     testWidgets('popToNamed pops to given URI', (tester) async {
@@ -146,12 +150,29 @@ void main() {
       delegate.beamToNamed('/books/1');
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 1);
-      expect(delegate.currentPages.last.key, ValueKey('home'));
+      expect(delegate.currentPages.last.key, const ValueKey('home'));
+    });
+
+    testWidgets('popToNamed clears history', (tester) async {
+      delegate.routeHistory.clear();
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routeInformationParser: BeamerParser(),
+          routerDelegate: delegate,
+        ),
+      );
+      delegate.beamToNamed('/books/1');
+      await tester.pump();
+      expect(delegate.routeHistory.length, 2);
+
+      delegate.navigator.pop();
+      await tester.pump();
+      expect(delegate.routeHistory.length, 1);
     });
 
     testWidgets('onPopPage that updates location pops correctly',
@@ -165,12 +186,12 @@ void main() {
       delegate.beamToNamed('/books/1/details');
       await tester.pump();
       expect(delegate.currentPages.length, 4);
-      expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1-details'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      expect(delegate.currentPages.last.key, ValueKey('books'));
+      expect(delegate.currentPages.last.key, const ValueKey('books'));
     });
 
     testWidgets('no customization pops normally', (tester) async {
@@ -183,12 +204,12 @@ void main() {
       delegate.beamToNamed('/books/1/details/buy');
       await tester.pump();
       expect(delegate.currentPages.length, 5);
-      expect(delegate.currentPages.last.key, ValueKey('book-1-buy'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1-buy'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 4);
-      expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1-details'));
     });
 
     testWidgets('subsequent pops work', (tester) async {
@@ -201,22 +222,22 @@ void main() {
       delegate.beamToNamed('/books/1/details');
       await tester.pump();
       expect(delegate.currentPages.length, 4);
-      expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1-details'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      expect(delegate.currentPages.last.key, ValueKey('books'));
+      expect(delegate.currentPages.last.key, const ValueKey('books'));
 
       delegate.beamToNamed('/books/1/details');
       await tester.pump();
       expect(delegate.currentPages.length, 4);
-      expect(delegate.currentPages.last.key, ValueKey('book-1-details'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1-details'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 2);
-      expect(delegate.currentPages.last.key, ValueKey('books'));
+      expect(delegate.currentPages.last.key, const ValueKey('books'));
     });
 
     testWidgets('query is kept on pop', (tester) async {
@@ -229,30 +250,31 @@ void main() {
       delegate.beamToNamed('/books/1/details?x=y');
       await tester.pump();
       expect(
-        delegate.currentBeamLocation.state.uri.path,
+        (delegate.currentBeamLocation.state as BeamState).uri.path,
         equals('/books/1/details'),
       );
       expect(
-        delegate.currentBeamLocation.state.queryParameters,
+        (delegate.currentBeamLocation.state as BeamState).queryParameters,
         equals({'x': 'y'}),
       );
 
       delegate.beamToNamed('/books/1/details/buy');
       await tester.pump();
       expect(
-        delegate.currentBeamLocation.state.uri.path,
+        (delegate.currentBeamLocation.state as BeamState).uri.path,
         equals('/books/1/details/buy'),
       );
-      expect(delegate.currentBeamLocation.state.queryParameters, equals({}));
+      expect((delegate.currentBeamLocation.state as BeamState).queryParameters,
+          equals({}));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(
-        delegate.currentBeamLocation.state.uri.path,
+        (delegate.currentBeamLocation.state as BeamState).uri.path,
         equals('/books/1/details'),
       );
       expect(
-        delegate.currentBeamLocation.state.queryParameters,
+        (delegate.currentBeamLocation.state as BeamState).queryParameters,
         equals({'x': 'y'}),
       );
     });
@@ -268,12 +290,12 @@ void main() {
       delegate.beamToNamed('/books/1', popBeamLocationOnPop: true);
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1'));
     });
 
     testWidgets('beamBackOnPop works', (tester) async {
@@ -286,18 +308,95 @@ void main() {
       delegate.beamToNamed('/books/1');
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-1'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-1'));
 
       delegate.beamToNamed('/books/2', beamBackOnPop: true);
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-2'));
+      expect(delegate.currentPages.last.key, const ValueKey('book-2'));
 
       delegate.navigator.pop();
       await tester.pump();
       expect(delegate.currentPages.length, 3);
-      expect(delegate.currentPages.last.key, ValueKey('book-1'));
-      expect(delegate.state.uri.path, '/books/1');
+      expect(delegate.currentPages.last.key, const ValueKey('book-1'));
+      expect(delegate.configuration.location, '/books/1');
+    });
+
+    testWidgets('pop removes from beamStateHistory', (tester) async {
+      final delegate = BeamerDelegate(
+        locationBuilder: SimpleLocationBuilder(
+          routes: {
+            '/': (context, state) => Container(),
+            '/test': (context, state) => Container(),
+            '/test/2': (context, state) => Container(),
+            '/xx': (context, state) => Container(),
+            '/xx/2': (context, state) => Container(),
+          },
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routeInformationParser: BeamerParser(),
+          routerDelegate: delegate,
+        ),
+      );
+      delegate.beamToNamed('/test');
+      await tester.pump();
+      expect(delegate.routeHistory.length, 2);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(
+          (delegate.currentBeamLocation.state as BeamState).uri.path, '/test');
+
+      delegate.beamToNamed('/test/2');
+      await tester.pump();
+      expect(delegate.routeHistory.length, 3);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(delegate.routeHistory[2].location, '/test/2');
+      expect((delegate.currentBeamLocation.state as BeamState).uri.path,
+          '/test/2');
+
+      delegate.navigator.pop();
+      await tester.pump();
+      expect(delegate.routeHistory.length, 2);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(
+          (delegate.currentBeamLocation.state as BeamState).uri.path, '/test');
+
+      delegate.beamToNamed('/xx');
+      await tester.pump();
+      expect(delegate.routeHistory.length, 3);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(delegate.routeHistory[2].location, '/xx');
+      expect((delegate.currentBeamLocation.state as BeamState).uri.path, '/xx');
+
+      delegate.beamToNamed('/xx/2');
+      await tester.pump();
+      expect(delegate.routeHistory.length, 4);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(delegate.routeHistory[2].location, '/xx');
+      expect(delegate.routeHistory[3].location, '/xx/2');
+      expect(
+          (delegate.currentBeamLocation.state as BeamState).uri.path, '/xx/2');
+
+      delegate.navigator.pop();
+      await tester.pump();
+      expect(delegate.routeHistory.length, 3);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(delegate.routeHistory[2].location, '/xx');
+      expect((delegate.currentBeamLocation.state as BeamState).uri.path, '/xx');
+
+      delegate.beamBack();
+      expect(delegate.routeHistory.length, 2);
+      expect(delegate.routeHistory[0].location, '/');
+      expect(delegate.routeHistory[1].location, '/test');
+      expect(
+          (delegate.currentBeamLocation.state as BeamState).uri.path, '/test');
     });
   });
 
@@ -305,44 +404,44 @@ void main() {
     final delegate = BeamerDelegate(
       locationBuilder: SimpleLocationBuilder(
         routes: {
-          '/': (context, state) => BeamPage(
+          '/': (context, state) => const BeamPage(
                 key: ValueKey('/'),
                 type: BeamPageType.material,
-                child: Scaffold(body: Container(child: Text('0'))),
+                child: Scaffold(body: Text('0')),
               ),
-          '/1': (context, state) => BeamPage(
+          '/1': (context, state) => const BeamPage(
                 key: ValueKey('/1'),
                 type: BeamPageType.cupertino,
-                child: Scaffold(body: Container(child: Text('1'))),
+                child: Scaffold(body: Text('1')),
               ),
-          '/1/2': (context, state) => BeamPage(
+          '/1/2': (context, state) => const BeamPage(
                 key: ValueKey('/1/2'),
                 type: BeamPageType.fadeTransition,
-                child: Scaffold(body: Container(child: Text('2'))),
+                child: Scaffold(body: Text('2')),
               ),
-          '/1/2/3': (context, state) => BeamPage(
+          '/1/2/3': (context, state) => const BeamPage(
                 key: ValueKey('/1/2/3'),
                 type: BeamPageType.slideTransition,
-                child: Scaffold(body: Container(child: Text('3'))),
+                child: Scaffold(body: Text('3')),
               ),
-          '/1/2/3/4': (context, state) => BeamPage(
+          '/1/2/3/4': (context, state) => const BeamPage(
                 key: ValueKey('/1/2/3/4'),
                 type: BeamPageType.scaleTransition,
-                child: Scaffold(body: Container(child: Text('4'))),
+                child: Scaffold(body: Text('4')),
               ),
-          '/1/2/3/4/5': (context, state) => BeamPage(
+          '/1/2/3/4/5': (context, state) => const BeamPage(
                 key: ValueKey('/1/2/3/4/5'),
                 type: BeamPageType.noTransition,
-                child: Scaffold(body: Container(child: Text('5'))),
+                child: Scaffold(body: Text('5')),
               ),
           '/1/2/3/4/5/6': (context, state) => BeamPage(
-                key: ValueKey('/1/2/3/4/5/6'),
-                pageRouteBuilder: (settings, child) => PageRouteBuilder(
+                key: const ValueKey('/1/2/3/4/5/6'),
+                routeBuilder: (settings, child) => PageRouteBuilder(
                   settings: settings,
                   pageBuilder: (context, animation, secondaryAnimation) =>
-                      child,
+                      Scaffold(body: Row(children: [const Text('6'), child])),
                 ),
-                child: Scaffold(body: Container(child: Text('6'))),
+                child: const Text('Child'),
               ),
         },
       ),
@@ -397,6 +496,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('6'), findsOneWidget);
+      expect(find.text('Child'), findsOneWidget);
     });
   });
 }

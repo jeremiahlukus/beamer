@@ -1,6 +1,6 @@
 name: beamer
 description: A routing package that lets you navigate through guarded page stacks and URLs using the Router and Navigator's Pages API, aka "Navigator 2.0".
-version: 1.0.0-pre.4.0
+version: 1.0.0-pre.5.0
 homepage: https://github.com/slovnicki/beamer
 repository: https://github.com/slovnicki/beamer
 
@@ -15,6 +15,7 @@ dependencies:
     sdk: flutter
 
 dev_dependencies:
+  flutter_lints: ^1.0.4
   flutter_test:
     sdk: flutter
 

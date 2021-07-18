@@ -1,5 +1,5 @@
-name: example
-description: An example app to showcase the Beamer package.
+name: books_dialogroute
+description: An example app to showcase how to use dialogroute with the Beamer package.
 
 publish_to: "none"
 
@@ -12,12 +12,11 @@ dependencies:
   flutter:
     sdk: flutter
   beamer:
-    path: ../
+    path: ../../package
 
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
-  flutter_lints: ^1.0.4
   flutter_test:
     sdk: flutter
 

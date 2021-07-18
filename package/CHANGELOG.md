@@ -1,11 +1,45 @@
-# 1.0.0-pre.4.0
+# 1.0.0-pre.5.0
+
+- **BREAKING:** "top-level state", the one in `BeamerDelegate` is now `RouteInformation` instead of `BeamState`
+    - `BeamerDelegate.state` doesn't exist anymore and is replaced with `BeamerDelegate.configuration` which is `RouteInformation` and not `BeamState`
+    - `locationBuilder` now works with `RouteInformation` instead of `BeamState`
+    - `super()` constructor on `BeamLocation` now takes optional `RouteInformation` instead of `BeamState`
+    - in order to continue using custom `BeamLocation`s with `BeamState` state, generic type has to be specified; `class MyBeamLocation extends BeamLocation<BeamState>`
+- **BREAKING:** The property `pageRouteBuilder` in `BeamPage` is replaced with a new property `routeBuilder` which works with any `RouteBuilder` not just `PageRouteBuilder`.
+- **BREAKING:** `BeamLocation.pathBlueprints` is now `List<Pattern>` instead of `List<dynamic>`
+- **Add:** [firebase_core example](https://github.com/slovnicki/beamer/tree/master/examples/firebase_core)
+- **Add:** [firebase_auth example](https://github.com/slovnicki/beamer/tree/master/examples/firebase_auth)
+- **Add:** `fullScreenDialog` property to `BeamPage`
+- **Add:** flutter_lints
+- **Add:** a [presentation](https://github.com/slovnicki/beamer/blob/master/resources/navigator-2.0-and-beamer.pdf) resource about beamer
+- **Fix:** clearing history range when using `popToNamed`
+- **Fix:** passing `BeamPage.title` to `CupertinoPageRoute`s
+
+# 0.14.1
+
+- **Add:** `updateParent` (default `true`) to `BeamerDelegate`
+- **Fix:** ignoring query on initial path
+
+# 0.14.0
 
 - **BREAKING:** `routes` in `SimpleLocationBuilder` now also bring the `state`
-- **Add:** `navigator` getter to `BeamerDelegate`
-- **Add:** `beamStateHistory` and `BeamLocationHistory` to `context` extension methods
+- **Add:** support for `RegExp` in `pathBlueprints` (in both `BeamGuard`s and `BeamLocation`s)
 - **Add:** updating nested `Beamer`s on parent navigation
 - **Add:** `onBack` to `BeamerbackButtonDispatcher`
-- **Add:** Support for `RegExp` in `pathBlueprints`
+- **Add:** `navigator` getter to `BeamerDelegate`
+- **Add:** `beamStateHistory` and `BeamLocationHistory` to `context` extension methods
+- **Add:** `data` parameter to `beamBack`
+- **Change:** `BeamPage.pageRouteBuilder` return type to be a superclass
+- **Fix:** removing last `BeamState` from history on default `pop`
+- **Fix:** `BeamGuard` behavior on query parameters
+- **Fix:** ignoring trailing `/` in URIs
+- **Fix:** keeping `data` as long as possible when beaming
+- Improved Android back button behavior
+- Improved bottom navigation examples
+- Improved README
+
+# 0.13.3
+
 - **Add:** [authentication_riverpod](https://github.com/slovnicki/beamer/tree/master/examples/authentication_riverpod) example
 - **Add:** "Tips and Common Issues" to README
 - Make `beamStateHistory` and `beamLocationHistory` public
@@ -23,10 +57,6 @@
 - Improved bottom navigation examples
 - Improved guards example
 - Improved README Quick Start
-
-# 1.0.0-pre.3.0
-
-A copy of `v0.13.0`
 
 # 0.13.0
 

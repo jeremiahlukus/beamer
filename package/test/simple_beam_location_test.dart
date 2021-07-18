@@ -15,7 +15,7 @@ void main() {
       },
     ),
   );
-  delegate.setNewRoutePath(BeamState.fromUri(Uri.parse('/')));
+  delegate.setNewRoutePath(const RouteInformation(location: '/'));
 
   group('General', () {
     testWidgets('/ can be at the end of URI and will be ignored when matching',
@@ -24,6 +24,28 @@ void main() {
         routeInformationParser: BeamerParser(),
         routerDelegate: delegate,
       ));
+      delegate.beamToNamed('/test/');
+      await tester.pump();
+      expect(delegate.currentPages.length, 2);
+    });
+
+    testWidgets(
+        '/ can be at the end of URI and will be ignored when matching, without RegExp',
+        (tester) async {
+      final delegate = BeamerDelegate(
+        locationBuilder: SimpleLocationBuilder(
+          routes: {
+            '/': (context, state) => Container(),
+            '/test': (context, state) => Container(),
+          },
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routeInformationParser: BeamerParser(),
+          routerDelegate: delegate,
+        ),
+      );
       delegate.beamToNamed('/test/');
       await tester.pump();
       expect(delegate.currentPages.length, 2);
@@ -49,9 +71,10 @@ void main() {
 
   group('Query', () {
     test('location takes query', () {
-      expect(delegate.currentBeamLocation.state.queryParameters, equals({}));
+      expect((delegate.currentBeamLocation.state as BeamState).queryParameters,
+          equals({}));
       delegate.beamToNamed('/?q=t');
-      expect(delegate.currentBeamLocation.state.queryParameters,
+      expect((delegate.currentBeamLocation.state as BeamState).queryParameters,
           equals({'q': 't'}));
     });
 
@@ -62,7 +85,7 @@ void main() {
       ));
       expect(delegate.currentPages.last.key, isA<ValueKey>());
       expect((delegate.currentPages.last.key as ValueKey).value,
-          equals(ValueKey('/?q=t').value));
+          equals(const ValueKey('/?q=t').value));
     });
   });
 
@@ -106,7 +129,7 @@ void main() {
           },
         ),
       );
-      delegate1.setNewRoutePath(BeamState.fromUri(Uri.parse('/anything')));
+      delegate1.setNewRoutePath(const RouteInformation(location: '/anything'));
       expect(delegate1.currentBeamLocation, isA<SimpleBeamLocation>());
 
       final delegate2 = BeamerDelegate(
@@ -116,7 +139,7 @@ void main() {
           },
         ),
       );
-      delegate2.setNewRoutePath(BeamState.fromUri(Uri.parse('/anything')));
+      delegate2.setNewRoutePath(const RouteInformation(location: '/anything'));
       expect(delegate2.currentBeamLocation, isA<SimpleBeamLocation>());
     });
 
@@ -128,7 +151,7 @@ void main() {
           },
         ),
       );
-      delegate1.setNewRoutePath(BeamState.fromUri(Uri.parse('/test/1')));
+      delegate1.setNewRoutePath(const RouteInformation(location: '/test/1'));
       expect(delegate1.currentBeamLocation, isA<SimpleBeamLocation>());
     });
   });
@@ -136,8 +159,8 @@ void main() {
   group('RegExp', () {
     test('can utilize path parameters', () {
       delegate.beamToNamed('/path-param/success');
-      expect(
-          delegate.currentBeamLocation.state.pathParameters, contains('test'));
+      expect((delegate.currentBeamLocation.state as BeamState).pathParameters,
+          contains('test'));
     });
   });
 }

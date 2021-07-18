@@ -11,7 +11,7 @@ import 'path_url_strategy_nonweb.dart'
 
 /// A wrapper for [Router].
 class Beamer extends StatefulWidget {
-  Beamer({
+  const Beamer({
     Key? key,
     required this.routerDelegate,
     this.createBackButtonDispatcher = true,
@@ -166,8 +166,8 @@ extension BeamerExtensions on BuildContext {
   /// {@macro currentPages}
   List<BeamPage> get currentBeamPages => Beamer.of(this).currentPages;
 
-  /// {@macro beamStateHistory}
-  List<BeamState> get beamStateHistory => Beamer.of(this).beamStateHistory;
+  /// {@macro routeHistory}
+  List<RouteInformation> get routeHistory => Beamer.of(this).routeHistory;
 
   /// {@macro canBeamBack}
   bool get canBeamBack => Beamer.of(this).canBeamBack;
@@ -178,4 +178,16 @@ extension BeamerExtensions on BuildContext {
 
   /// {@macro canPopBeamLocation}
   bool get canPopBeamLocation => Beamer.of(this).canPopBeamLocation;
+}
+
+extension BeamerRouteInformationExtension on RouteInformation {
+  RouteInformation copyWith({
+    String? location,
+    Object? state,
+  }) {
+    return RouteInformation(
+      location: location ?? this.location,
+      state: state ?? this.state,
+    );
+  }
 }

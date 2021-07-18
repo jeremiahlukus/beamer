@@ -7,7 +7,6 @@
 <a href="https://codecov.io/gh/slovnicki/beamer">
 <img src="https://codecov.io/gh/slovnicki/beamer/branch/master/graph/badge.svg?token=TO09CQU09C"/>
 </a>
-<a href="https://github.com/google/pedantic"><img src="https://dart-lang.github.io/linter/lints/style-pedantic.svg" alt="style"></a>
 </p>
 
 <p align="center">
@@ -41,6 +40,7 @@ Handle your application routing, synchronize it with browser URL and more. Beame
   - [Beaming](#beaming)
   - [Updating](#updating)
   - [Beaming Back](#beaming-back)
+  - [Guards](#guards)
 - [Usage](#usage)
   - [With a List of BeamLocations](#with-a-list-of-beamlocations)
   - [With a Map of Routes](#with-a-map-of-routes)
@@ -79,13 +79,11 @@ class MyApp extends StatelessWidget {
     locationBuilder: SimpleLocationBuilder(
       routes: {
         // Return either Widgets or BeamPages if more customization is needed
-        '/': (context) => HomeScreen(),
-        '/books': (context) => BooksScreen(),
-        '/books/:bookId': (context) {
-          // Extract the current BeamState which holds route information
-          final beamState = context.currentBeamLocation.state;
-          // Take the parameter of interest
-          final bookId = beamState.pathParameters['bookId']!;
+        '/': (context, state) => HomeScreen(),
+        '/books': (context, state) => BooksScreen(),
+        '/books/:bookId': (context, state) {
+          // Take the parameter of interest from BeamState
+          final bookId = state.pathParameters['bookId']!;
           // Return a Widget or wrap it in a BeamPage for more flexibility
           return BeamPage(
             key: ValueKey('book-$bookId'),
@@ -299,6 +297,39 @@ context.beamBack();
 backButtonDispatcher: BeamerBackButtonDispatcher(delegate: routerDelegate)
 ```
 
+## Guards
+
+To guard specific routes, e.g. from un-authenticated users, global `BeamGuard`s can be set up via `BeamerDelegate.guards` attribute. A most common example would be the `BeamGuard` that guards any route that **is not** `/login` and redirects to `/login` if the user is not authenticated:
+
+```dart
+BeamGuard(
+  pathBlueprints: ['/login'],
+  guardNonMatching: true,
+  check: (context, location) => context.isUserAuthenticated(),
+  beamToNamed: '/login',
+)
+```
+
+Note the usage of `guardNonMatching` in this example. This is important because guards (there can be many of them, each guarding different aspects) will run in recursion on the output of previously applied guard until a "safe" route is reached. A common mistake is to setup a guard with `pathBlueprints: ['*']` to guard everything, but everything also includes `/login` (which should be a "safe" route) and this leads to an infinite loop:
+
+- check `/login`
+- user not authenticated
+- beam to `/login`
+- check `/login`
+- user not authenticated
+- beam to `/login`
+- ...
+
+Of course, `guardNonMatching` needs not to be used always. Sometimes we wish to guard just a few routes that can be specified. Here is an example of a guard that has the same role as above, implemented with `guardNonMatching: false` (default):
+
+```dart
+BeamGuard(
+  pathBlueprints: ['/profile/*', '/orders/*'],
+  check: (context, location) => context.isUserAuthenticated(),
+  beamToNamed: '/login',
+)
+```
+
 # Usage
 
 To use the full-featured Beamer in your app, you must (as per [official documentation](https://api.flutter.dev/flutter/widgets/Router-class.html)) construct your `*App` widget with `.router` constructor to which (along with all your regular `*App` attributes) you provide
@@ -352,17 +383,16 @@ final routerDelegate = BeamerDelegate(
 
 ## With a Map of Routes
 
-You can use the `SimpleLocationBuilder` with a map of routes and `WidgetBuilder`s, as mentioned in [Quick Start](#quick-start). This completely removes the need for custom `BeamLocation`s, but also gives you the least amount of customizability. Still, wildcards and path parameters in your paths are supported as with all the other options.
+You can use the `SimpleLocationBuilder` with a map of routes, as mentioned in [Quick Start](#quick-start). This completely removes the need for custom `BeamLocation`s, but also gives you the least amount of customizability. Still, wildcards and path parameters in your paths are supported as with all the other options.
 
 ```dart
 final routerDelegate = BeamerDelegate(
   locationBuilder: SimpleLocationBuilder(
     routes: {
-      '/': (context) => HomeScreen(),
-      '/books': (context) => BooksScreen(),
-      '/books/:bookId': (context) => BookDetailsScreen(
-        bookId: context.currentBeamLocation.state.pathParameters['bookId'],
-      ),
+      '/': (context, state) => HomeScreen(),
+      '/books': (context, state) => BooksScreen(),
+      '/books/:bookId': (context, state) =>
+        BookDetailsScreen(bookId: state.pathParameters['bookId']),
     },
   ),
 );
@@ -378,7 +408,7 @@ class MyApp extends StatelessWidget {
     initialPath: '/books',
     locationBuilder: SimpleLocationBuilder(
       routes: {
-        '/*': (context) {
+        '/*': (context, state) {
           final beamerKey = GlobalKey<BeamerState>();
 
           return Scaffold(
@@ -562,6 +592,7 @@ The code for the nested navigation example app is available [here](https://githu
 ## From 0.13 to 0.14
 
 Instead of
+
 ```dart
 locationBuilder: SimpleLocationBuilder(
   routes: {
@@ -572,8 +603,10 @@ locationBuilder: SimpleLocationBuilder(
     }
   }
 )
-``` 
+```
+
 now we have
+
 ```dart
 locationBuilder: SimpleLocationBuilder(
   routes: {

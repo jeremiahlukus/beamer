@@ -1,19 +1,30 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import './utils.dart';
 import './beam_location.dart';
 
+mixin RouteInformationSerializable<T> {
+  T fromRouteInformation(RouteInformation routeInformation);
+  RouteInformation toRouteInformation();
+  RouteInformation get routeInformation => toRouteInformation();
+}
+
 /// A state for [BeamerDelegate] and [BeamLocation].
 ///
 /// Helps in building the pages and creates an URI.
-class BeamState {
+class BeamState with RouteInformationSerializable<BeamState> {
   BeamState({
     this.pathBlueprintSegments = const <String>[],
     this.pathParameters = const <String, String>{},
     this.queryParameters = const <String, String>{},
     this.data = const <String, dynamic>{},
-  }) {
+  }) : assert(() {
+          json.encode(data);
+          return true;
+        }()) {
     configure();
   }
 
@@ -32,6 +43,47 @@ class BeamState {
       uri,
       beamLocation: beamLocation,
       data: data,
+    );
+  }
+
+  /// Creates a [BeamState] from given [uriString] and optional [data].
+  ///
+  /// If [beamLocation] is given, then it will take into consideration
+  /// its path blueprints to populate the [pathParameters] attribute.
+  ///
+  /// See [BeamState.fromUri].
+  factory BeamState.fromUriString(
+    String uriString, {
+    BeamLocation? beamLocation,
+    Map<String, dynamic> data = const <String, dynamic>{},
+  }) {
+    uriString = Utils.trimmed(uriString);
+    final uri = Uri.parse(uriString);
+    return BeamState.fromUri(
+      uri,
+      beamLocation: beamLocation,
+      data: data,
+    );
+  }
+
+  /// Creates a [BeamState] from given [routeInformation].
+  ///
+  /// If [beamLocation] is given, then it will take into consideration
+  /// its path blueprints to populate the [pathParameters] attribute.
+  ///
+  /// See [BeamState.fromUri].
+  factory BeamState.fromRouteInformation(
+    RouteInformation routeInformation, {
+    BeamLocation? beamLocation,
+  }) {
+    return BeamState.fromUri(
+      Uri.parse(routeInformation.location ?? '/'),
+      beamLocation: beamLocation,
+      data: routeInformation.state is Map<String, dynamic>
+          ? routeInformation.state as Map<String, dynamic>
+          : {
+              'state': routeInformation.state,
+            },
     );
   }
 
@@ -106,7 +158,7 @@ class BeamState {
       path: '/' + pathBlueprintSegments.join('/'),
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
-    final pathSegments = List<String>.from(pathBlueprintSegments);
+    final pathSegments = pathBlueprintSegments.toList();
     for (int i = 0; i < pathSegments.length; i++) {
       if (pathSegments[i].isNotEmpty && pathSegments[i][0] == ':') {
         final key = pathSegments[i].substring(1);
@@ -120,6 +172,23 @@ class BeamState {
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
   }
+
+  @override
+  BeamState fromRouteInformation(RouteInformation routeInformation) =>
+      BeamState.fromUriString(
+        routeInformation.location ?? '/',
+        data: routeInformation.state is Map<String, dynamic>
+            ? routeInformation.state as Map<String, dynamic>
+            : {
+                'state': routeInformation.state,
+              },
+      );
+
+  @override
+  RouteInformation toRouteInformation() => RouteInformation(
+        location: uri.toString(),
+        state: data,
+      );
 
   @override
   int get hashCode => hashValues(uri, data);

@@ -3,20 +3,24 @@ import 'package:flutter/material.dart';
 import '../beamer.dart';
 import 'utils.dart';
 
-typedef LocationBuilder = BeamLocation Function(BeamState);
+typedef LocationBuilder = BeamLocation Function(RouteInformation);
 
 /// A pre-made builder to be used for [locationBuilder].
 ///
 /// Determines the appropriate [BeamLocation] from the list
 /// and populates it with configured state.
-class BeamerLocationBuilder implements Function {
+class BeamerLocationBuilder {
   BeamerLocationBuilder({required this.beamLocations});
 
   /// List of all [BeamLocation]s that this builder handles.
   final List<BeamLocation> beamLocations;
 
-  BeamLocation call(BeamState state) {
-    return Utils.chooseBeamLocation(state.uri, beamLocations, data: state.data);
+  BeamLocation call(RouteInformation routeInformation) {
+    return Utils.chooseBeamLocation(
+      Uri.parse(routeInformation.location ?? '/'),
+      beamLocations,
+      data: {'state': routeInformation.state},
+    );
   }
 }
 
@@ -24,26 +28,27 @@ class BeamerLocationBuilder implements Function {
 ///
 /// Creates a single [BeamLocation]; [SimpleBeamLocation]
 /// and configures its [BeamLocation.buildPages] with appropriate [routes].
-class SimpleLocationBuilder implements Function {
+class SimpleLocationBuilder {
   SimpleLocationBuilder({required this.routes, this.builder});
 
   /// List of all routes this builder handles.
-  final Map<dynamic, dynamic Function(BuildContext, BeamState)> routes;
+  final Map<Pattern, dynamic Function(BuildContext, BeamState)> routes;
 
   /// Used as a [BeamLocation.builder].
   Widget Function(BuildContext context, Widget navigator)? builder;
 
-  BeamLocation call(BeamState state) {
-    var matched = SimpleBeamLocation.chooseRoutes(state, routes.keys);
+  BeamLocation call(RouteInformation routeInformation) {
+    final matched =
+        SimpleBeamLocation.chooseRoutes(routeInformation, routes.keys);
     if (matched.isNotEmpty) {
       return SimpleBeamLocation(
-        state: state,
+        routeInformation: routeInformation,
         routes: Map.fromEntries(
             routes.entries.where((e) => matched.containsKey(e.key))),
         navBuilder: builder,
       );
     } else {
-      return NotFound(path: state.uri.path);
+      return NotFound(path: routeInformation.location ?? '/');
     }
   }
 }

@@ -1,9 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'beam_location.dart';
-import 'beam_state.dart';
-import 'beamer_delegate.dart';
+import '../beamer.dart';
 
 /// Types for how to route should be built.
 enum BeamPageType {
@@ -17,7 +15,7 @@ enum BeamPageType {
 
 /// A wrapper for screens in a navigation stack.
 class BeamPage extends Page {
-  BeamPage({
+  const BeamPage({
     LocalKey? key,
     String? name,
     required this.child,
@@ -25,7 +23,8 @@ class BeamPage extends Page {
     this.onPopPage = defaultOnPopPage,
     this.popToNamed,
     this.type = BeamPageType.material,
-    this.pageRouteBuilder,
+    this.routeBuilder,
+    this.fullScreenDialog = false,
     this.keepQueryOnPop = false,
   }) : super(key: key, name: name);
 
@@ -35,36 +34,39 @@ class BeamPage extends Page {
     BeamerDelegate delegate,
     BeamPage poppedPage,
   ) {
-    final location = delegate.currentBeamLocation;
-    final previousBeamState = delegate.beamStateHistory.length > 1
-        ? delegate.beamStateHistory[delegate.beamStateHistory.length - 2]
+    final beamLocation = delegate.currentBeamLocation;
+    final previousRouteInformation = delegate.routeHistory.length > 1
+        ? delegate.routeHistory[delegate.routeHistory.length - 2]
+        : null;
+    final previousUri = previousRouteInformation != null
+        ? Uri.parse(previousRouteInformation.location ?? '/')
         : null;
 
-    final pathBlueprintSegments =
-        List<String>.from(location.state.pathBlueprintSegments);
-    final pathParameters =
-        Map<String, String>.from(location.state.pathParameters);
-    final pathSegment = pathBlueprintSegments.removeLast();
-    if (pathSegment[0] == ':') {
-      pathParameters.remove(pathSegment.substring(1));
-    }
+    final location = beamLocation.state.routeInformation.location ?? '/';
+    final pathSegments = Uri.parse(location).pathSegments;
+    final queryParameters = Uri.parse(location).queryParameters;
+    var popUri = Uri(
+      pathSegments: List.from(pathSegments)..removeLast(),
+      queryParameters: poppedPage.keepQueryOnPop ? queryParameters : null,
+    );
+    final popUriPath = '/' + popUri.path;
 
-    var beamState = BeamState(
-      pathBlueprintSegments: pathBlueprintSegments,
-      pathParameters: pathParameters,
+    popUri = Uri(
+      pathSegments: popUri.pathSegments,
       queryParameters:
-          poppedPage.keepQueryOnPop ? location.state.queryParameters : {},
-      data: location.state.data,
+          (popUriPath == previousUri?.path && !poppedPage.keepQueryOnPop)
+              ? previousUri?.queryParameters
+              : popUri.queryParameters,
     );
 
-    if (beamState.uri.path == previousBeamState?.uri.path &&
-        !poppedPage.keepQueryOnPop) {
-      beamState = beamState.copyWith(
-        queryParameters: previousBeamState?.queryParameters,
-      );
-    }
+    delegate.removeLastRouteInformation();
+    delegate.update(
+      configuration: delegate.configuration.copyWith(
+        location:
+            popUriPath + (popUri.query.isNotEmpty ? '?${popUri.query}' : ''),
+      ),
+    );
 
-    location.update((state) => beamState);
     return true;
   }
 
@@ -99,11 +101,16 @@ class BeamPage extends Page {
   /// See [BeamPageType] for available types.
   final BeamPageType type;
 
-  /// A builder for custom [PageRoute] to use in [createRoute].
+  /// A builder for custom [Route] to use in [createRoute].
   ///
   /// [settings] must be passed to [PageRoute.settings].
-  final PageRoute Function(RouteSettings settings, Widget child)?
-      pageRouteBuilder;
+  /// [child] is the child of this [BeamPage]
+  final Route Function(RouteSettings settings, Widget child)? routeBuilder;
+
+  /// Whether to present current [BeamPage] as a fullscreen dialog
+  ///
+  /// On iOS, dialog transitions animate differently and are also not closeable with the back swipe gesture
+  final bool fullScreenDialog;
 
   /// When this [BeamPage] pops from [Navigator] stack, whether to keep the
   /// query parameters within current [BeamLocation].
@@ -113,17 +120,20 @@ class BeamPage extends Page {
 
   @override
   Route createRoute(BuildContext context) {
-    if (pageRouteBuilder != null) {
-      return pageRouteBuilder!(this, child);
+    if (routeBuilder != null) {
+      return routeBuilder!(this, child);
     }
     switch (type) {
       case BeamPageType.cupertino:
         return CupertinoPageRoute(
+          title: title,
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           builder: (context) => child,
         );
       case BeamPageType.fadeTransition:
         return PageRouteBuilder(
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           pageBuilder: (_, __, ___) => child,
           transitionsBuilder: (_, animation, __, child) => FadeTransition(
@@ -133,17 +143,19 @@ class BeamPage extends Page {
         );
       case BeamPageType.slideTransition:
         return PageRouteBuilder(
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           pageBuilder: (_, __, ___) => child,
           transitionsBuilder: (_, animation, __, child) => SlideTransition(
             position: animation.drive(
-                Tween(begin: Offset(0, 1), end: Offset(0, 0))
+                Tween(begin: const Offset(0, 1), end: const Offset(0, 0))
                     .chain(CurveTween(curve: Curves.ease))),
             child: child,
           ),
         );
       case BeamPageType.scaleTransition:
         return PageRouteBuilder(
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           pageBuilder: (_, __, ___) => child,
           transitionsBuilder: (_, animation, __, child) => ScaleTransition(
@@ -153,11 +165,13 @@ class BeamPage extends Page {
         );
       case BeamPageType.noTransition:
         return PageRouteBuilder(
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           pageBuilder: (context, animation, secondaryAnimation) => child,
         );
       default:
         return MaterialPageRoute(
+          fullscreenDialog: fullScreenDialog,
           settings: this,
           builder: (context) => child,
         );
