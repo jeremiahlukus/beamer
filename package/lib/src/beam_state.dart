@@ -26,10 +26,7 @@ class BeamState with RouteInformationSerializable<BeamState> {
     this.pathParameters = const <String, String>{},
     this.queryParameters = const <String, String>{},
     this.data = const <String, dynamic>{},
-  }) : assert(() {
-          json.encode(data);
-          return true;
-        }()) {
+  }) {
     configure();
   }
 
